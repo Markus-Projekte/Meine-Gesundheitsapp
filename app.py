@@ -1,41 +1,39 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 1. SETUP
+# 1. SETUP mit dem Modell aus DEINER Liste
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
     
-    # Wir versuchen es jetzt mit dem Namen 'models/gemini-1.5-flash'
-    # Das ist die technisch präziseste Schreibweise
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    # Wir nehmen das Modell, das bei dir verfügbar ist:
+    model = genai.GenerativeModel('models/gemini-3-flash-preview')
 except Exception as e:
     st.error(f"Setup Fehler: {e}")
 
+# 2. INTERFACE
+st.set_page_config(page_title="Mentor KI", page_icon="🧘")
 st.title("🧘 Dein Alltags-Mentor")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Chat anzeigen
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Schreib mir..."):
+# 3. CHAT-LOGIK
+if prompt := st.chat_input("Wie kann ich dir heute helfen?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     try:
         with st.chat_message("assistant"):
-            # Der Aufruf mit Fehler-Abfang
+            # Anfrage an das Gemini 3 Modell
             response = model.generate_content(prompt)
             st.markdown(response.text)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
     except Exception as e:
-        st.error(f"Fehler: {e}")
-        # Kleiner Helfer: Wir listen verfügbare Modelle auf, wenn es kracht
-        st.write("Verfügbare Modelle für deinen Key:")
-        for m in genai.list_models():
-            if 'generateContent' in m.supported_generation_methods:
-                st.write(f"- {m.name}")
+        st.error(f"Hoppla, da gab es ein Problem: {e}")
