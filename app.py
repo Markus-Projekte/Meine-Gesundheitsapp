@@ -7,54 +7,50 @@ try:
     genai.configure(api_key=API_KEY)
     model = genai.GenerativeModel('models/gemini-3-flash-preview')
 except Exception as e:
-    st.error("Bitte prüfe deine API-Key Einstellungen.")
+    st.error("Setup Fehler. Bitte Secrets prüfen.")
     st.stop()
 
-# 2. SEITEN-KONFIGURATION & STYLING
-st.set_page_config(page_title="Mein Alltags-Mentor", page_icon="🌱")
-
-# Ein bisschen CSS für ein schöneres Design
+# 2. DESIGN & STYLING
+st.set_page_config(page_title="Dein Begleiter", page_icon="🌿")
 st.markdown("""
     <style>
-    .stApp { background-color: #f0f4f8; }
-    .main-title { color: #2c3e50; text-align: center; }
+    .stApp { background-color: #f7f9fb; }
+    .stChatMessage { border-radius: 15px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. STATUS-SPEICHER (Session State)
+# 3. STATUS
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "progress" not in st.session_state:
-    st.session_state.progress = 0
+if "care_points" not in st.session_state:
+    st.session_state.care_points = 0
 
 # 4. OBERFLÄCHE
-st.markdown("<h1 class='main-title'>🌱 Mein persönlicher Mentor</h1>", unsafe_allow_html=True)
+st.title("🌿 Dein persönlicher Begleiter")
 
-# Fortschrittsbalken
-st.write(f"Dein heutiger Fokus-Fortschritt: {st.session_state.progress}%")
-st.progress(st.session_state.progress)
+# Den Fortschritt nennen wir jetzt "Achtsamkeits-Moment"
+st.write(f"Heutige Selbstfürsorge: {st.session_state.care_points}%")
+st.progress(st.session_state.care_points)
 
-# Sidebar für Individualisierung
+# Sidebar
 with st.sidebar:
-    st.header("Dein Fokus heute")
-    fokus = st.selectbox("Wobei soll ich dich begleiten?", 
-                         ["Ganzheitliches Wohlbefinden", "Körperliche Beschwerden", "Stress & Entspannung", "Motivation & Fokus"])
-    
-    if st.button("Chat zurücksetzen"):
+    st.header("Einstellungen")
+    if st.button("Gespräch neu starten"):
         st.session_state.messages = []
-        st.session_state.progress = 0
+        st.session_state.care_points = 0
         st.rerun()
+    st.info("Ich höre dir zu und wir suchen gemeinsam nach dem nächsten kleinen Schritt.")
 
-# 5. CHAT-VERLAUF ANZEIGEN
+# 5. CHAT ANZEIGEN
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 6. INTERAKTION
-if prompt := st.chat_input("Erzähl mir, wie es dir geht..."):
-    # Fortschritt erhöhen bei Interaktion
-    if st.session_state.progress < 100:
-        st.session_state.progress += 20
+# 6. DIALOG-LOGIK
+if prompt := st.chat_input("Was beschäftigt dich gerade?"):
+    # Punkte für die Beschäftigung mit sich selbst
+    if st.session_state.care_points < 100:
+        st.session_state.care_points += 10
         
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -62,28 +58,27 @@ if prompt := st.chat_input("Erzähl mir, wie es dir geht..."):
 
     try:
         with st.chat_message("assistant"):
-            # Individuelle System-Anweisung
+            # STRENGE ANWEISUNG FÜR KURZE ANTWORTEN
             instruktion = (
-                f"Du bist ein ganzheitlicher Mentor. Aktueller Fokus des Nutzers: {fokus}. "
-                "Antworte nicht mit Standardfloskeln. Wenn der Nutzer etwas erzählt, "
-                "gehe auf die Emotionen dahinter ein. Frage nach dem Umfeld (Schlaf, Stress, Ernährung), "
-                "um ein Gesamtbild zu bekommen. Sei warmherzig und lösungsorientiert."
+                "Du bist ein achtsamer Begleiter. DEINE REGELN:\n"
+                "1. Antworte extrem kurz (max. 2-3 Sätze).\n"
+                "2. Gib keine langen Listen oder Ratschläge.\n"
+                "3. Stelle immer nur EINE gezielte Nachfrage, um das Problem besser zu verstehen.\n"
+                "4. Sei warmherzig, aber komm direkt zum Punkt.\n"
+                "5. Arbeite mit dem, was der Nutzer gerade gesagt hat."
             )
             
-            # Kontext zusammenbauen
-            context = f"SYSTEM: {instruktion}\n"
-            for m in st.session_state.messages[-5:]: # Die letzten 5 Nachrichten für den Kontext
-                context += f"{m['role']}: {m['content']}\n"
+            # Kontext (letzte 10 Nachrichten für flüssigen Dialog)
+            messages_for_ai = [{"role": "system", "parts": [instruktion]}]
+            for m in st.session_state.messages[-10:]:
+                role = "model" if m["role"] == "assistant" else "user"
+                messages_for_ai.append({"role": role, "parts": [m["content"]]})
             
-            response = model.generate_content(context)
+            response = model.generate_content(messages_for_ai)
             antwort = response.text
+            
             st.markdown(antwort)
             st.session_state.messages.append({"role": "assistant", "content": antwort})
-            
-            # Falls die Antwort eine Übung enthält, feiern wir das!
-            if st.session_state.progress >= 100:
-                st.balloons()
-                st.success("Toll! Du hast dich heute intensiv mit dir selbst auseinandergesetzt!")
 
     except Exception as e:
-        st.error("Verbindung zur KI unterbrochen. Bitte kurz warten.")
+        st.error("Ein kleiner technischer Schluckauf. Schreib es bitte nochmal.")
