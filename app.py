@@ -1,56 +1,52 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 1. SICHERE VERBINDUNG
+# 1. KONFIGURATION
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-    
-    # DIESE ZEILE IST NEU UND SICHERER:
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
-    
-except Exception as e:
-    st.error("Konfigurationsfehler. Bitte Secrets prüfen.")
+except:
+    st.error("API Key fehlt in den Secrets!")
     st.stop()
 
-# 2. DESIGN & SETUP
+# 2. DAS MODELL LADEN (Mit Sicherheitsnetz)
+@st.cache_resource
+def load_model():
+    # Wir versuchen die stabilste Version
+    return genai.GenerativeModel('gemini-1.5-flash-latest')
+
+model = load_model()
+
+# 3. INTERFACE
 st.set_page_config(page_title="Dein Mentor", page_icon="🧘")
+st.title("🧘 Dein Alltags-Mentor")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 3. NOTFALL-FILTER
-def check_emergency(text):
-    red_flags = ["suizid", "notfall", "atemnot", "herzinfarkt", "schmerzen"]
-    return any(word in text.lower() for word in red_flags)
-
-# 4. OBERFLÄCHE
-st.title("🧘 Dein Alltags-Mentor")
-st.caption("Ein Prototyp zur Selbsthilfe. In Notfällen 112 wählen.")
-
-# Chat-Verlauf anzeigen
+# Verlauf anzeigen
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # Eingabe
-if prompt := st.chat_input("Wie kann ich helfen?"):
+if prompt := st.chat_input("Schreib mir etwas..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    if check_emergency(prompt):
-        response_text = "🚨 **WICHTIG:** Bitte wende dich sofort an den Notruf (112)!"
-    else:
-        try:
-            with st.chat_message("assistant"):
-                # Hier rufen wir die KI auf
-                response = model.generate_content(prompt)
-                response_text = response.text
-                st.markdown(response_text)
-        except Exception as e:
-            # Falls Google mal wieder hakt, zeigen wir eine nette Meldung
-            response_text = "Ich konnte keine Verbindung aufbauen. Bitte versuche es in einer Minute noch einmal."
-            st.error(f"Technischer Hinweis: {e}")
-
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+    try:
+        with st.chat_message("assistant"):
+            # Der entscheidende Aufruf
+            response = model.generate_content(prompt)
+            # Falls die Antwort leer ist oder hakt:
+            if response.text:
+                full_response = response.text
+            else:
+                full_response = "Ich habe dich verstanden, kann aber gerade keine Antwort generieren."
+            
+            st.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+    except Exception as e:
+        st.error(f"Immer noch ein Verbindungsproblem: {e}")
+        st.info("Tipp: Gehe in deine requirements.txt und stelle sicher, dass dort nur 'google-generativeai' steht.")
