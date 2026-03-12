@@ -6,7 +6,7 @@ try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
     # Wir nutzen 1.5-flash, das ist schnell und stabil
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
 except Exception as e:
     st.error("Fehler beim Laden des API-Keys. Hast du ihn in den 'Secrets' hinterlegt?")
     st.stop()
@@ -75,3 +75,4 @@ if prompt := st.chat_input("Wie kann ich dir heute helfen?"):
 
     # Antwort speichern
     st.session_state.messages.append({"role": "assistant", "content": antwort})
+
