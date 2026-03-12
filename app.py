@@ -1,78 +1,56 @@
 import streamlit as st
 import google.generativeai as genai
 
-# 1. SICHERE VERBINDUNG ZUM KEY (Über Streamlit Secrets)
+# 1. SICHERE VERBINDUNG
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
-    # Wir nutzen 1.5-flash, das ist schnell und stabil
-    model = genai.GenerativeModel('gemini-pro')
+    
+    # DIESE ZEILE IST NEU UND SICHERER:
+    model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+    
 except Exception as e:
-    st.error("Fehler beim Laden des API-Keys. Hast du ihn in den 'Secrets' hinterlegt?")
+    st.error("Konfigurationsfehler. Bitte Secrets prüfen.")
     st.stop()
 
-# 2. SEITEN-DESIGN
-st.set_page_config(page_title="Mentor KI", page_icon="🧘")
+# 2. DESIGN & SETUP
+st.set_page_config(page_title="Dein Mentor", page_icon="🧘")
 
-# Falls die App neu startet, leeren wir den Speicher für den Verlauf nicht
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 3. NOTFALL-CHECK (Sicherheit geht vor!)
-def ist_notfall(text):
-    notfall_woerter = ["suizid", "atemnot", "herzinfarkt", "töten", "notfall", "vergiften"]
-    return any(wort in text.lower() for wort in notfall_woerter)
+# 3. NOTFALL-FILTER
+def check_emergency(text):
+    red_flags = ["suizid", "notfall", "atemnot", "herzinfarkt", "schmerzen"]
+    return any(word in text.lower() for word in red_flags)
 
-# 4. DAS INTERFACE
+# 4. OBERFLÄCHE
 st.title("🧘 Dein Alltags-Mentor")
-st.info("Hinweis: Dies ist ein Prototyp zur Selbsthilfe. In Notfällen bitte 112 wählen.")
+st.caption("Ein Prototyp zur Selbsthilfe. In Notfällen 112 wählen.")
 
-# Sidebar für Optionen
-with st.sidebar:
-    if st.button("Chat löschen"):
-        st.session_state.messages = []
-        st.rerun()
-    st.markdown("---")
-    st.write("📞 Notruf: 112")
-    st.write("☎️ Seelsorge: 0800 1110111")
-
-# 5. CHAT-LOGIK
-# Den bisherigen Chat anzeigen
+# Chat-Verlauf anzeigen
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Neue Eingabe vom Nutzer
-if prompt := st.chat_input("Wie kann ich dir heute helfen?"):
-    
-    # Nutzer-Nachricht anzeigen & speichern
+# Eingabe
+if prompt := st.chat_input("Wie kann ich helfen?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # A. Sicherheits-Check
-    if ist_notfall(prompt):
-        antwort = "🚨 **WICHTIG:** Das klingt nach einer sehr ernsten Lage. Bitte suche sofort Hilfe beim Notruf (112) oder einer Rettungsstelle!"
+    if check_emergency(prompt):
+        response_text = "🚨 **WICHTIG:** Bitte wende dich sofort an den Notruf (112)!"
     else:
-        # B. KI-Anfrage
         try:
             with st.chat_message("assistant"):
-                with st.spinner("Ich überlege..."):
-                    # Instruktion an die KI
-                    system_anweisung = (
-                        "Du bist ein hilfreicher Mentor für den Alltag. "
-                        "Antworte warmherzig, gib keine Diagnosen, sondern schlage kleine Selbsthilfe-Übungen vor. "
-                        "Erinnere den Nutzer bei Symptomen immer daran, einen Arzt aufzusuchen."
-                    )
-                    full_prompt = f"{system_anweisung}\n\nNutzer: {prompt}"
-                    
-                    response = model.generate_content(full_prompt)
-                    antwort = response.text
-                    st.markdown(antwort)
+                # Hier rufen wir die KI auf
+                response = model.generate_content(prompt)
+                response_text = response.text
+                st.markdown(response_text)
         except Exception as e:
-            antwort = "Entschuldigung, ich habe gerade ein technisches Problem. Bitte versuche es gleich noch einmal."
-            st.error(f"Technischer Fehler: {e}")
+            # Falls Google mal wieder hakt, zeigen wir eine nette Meldung
+            response_text = "Ich konnte keine Verbindung aufbauen. Bitte versuche es in einer Minute noch einmal."
+            st.error(f"Technischer Hinweis: {e}")
 
-    # Antwort speichern
-    st.session_state.messages.append({"role": "assistant", "content": antwort})
-
+    st.session_state.messages.append({"role": "assistant", "content": response_text})
