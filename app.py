@@ -1,30 +1,28 @@
 import streamlit as st
 import google.generativeai as genai
+import os
 
 # 1. KONFIGURATION
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
+    # Dieser Befehl zwingt die App, die stabile Version 1 zu nutzen
+    os.environ["GOOGLE_API_USE_MTLS"] = "never" 
     genai.configure(api_key=API_KEY)
-except:
-    st.error("API Key fehlt in den Secrets!")
+    
+    # Wir nehmen jetzt 'gemini-1.5-flash' – das ist das Standardmodell
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"Fehler bei der Konfiguration: {e}")
     st.stop()
 
-# 2. DAS MODELL LADEN (Mit Sicherheitsnetz)
-@st.cache_resource
-def load_model():
-    # Wir versuchen die stabilste Version
-    return genai.GenerativeModel('gemini-1.5-flash-latest')
-
-model = load_model()
-
-# 3. INTERFACE
+# 2. INTERFACE
 st.set_page_config(page_title="Dein Mentor", page_icon="🧘")
 st.title("🧘 Dein Alltags-Mentor")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Verlauf anzeigen
+# Chat anzeigen
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
@@ -37,16 +35,10 @@ if prompt := st.chat_input("Schreib mir etwas..."):
 
     try:
         with st.chat_message("assistant"):
-            # Der entscheidende Aufruf
+            # Wichtig: Wir nutzen hier den einfachsten Aufruf ohne Schnickschnack
             response = model.generate_content(prompt)
-            # Falls die Antwort leer ist oder hakt:
-            if response.text:
-                full_response = response.text
-            else:
-                full_response = "Ich habe dich verstanden, kann aber gerade keine Antwort generieren."
-            
-            st.markdown(full_response)
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.markdown(response.text)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
     except Exception as e:
-        st.error(f"Immer noch ein Verbindungsproblem: {e}")
-        st.info("Tipp: Gehe in deine requirements.txt und stelle sicher, dass dort nur 'google-generativeai' steht.")
+        st.error(f"Technisches Detail-Problem: {e}")
+        st.info("Falls dieser Fehler 404 bleibt, müssen wir einmal die 'Reboot App' Funktion nutzen.")
