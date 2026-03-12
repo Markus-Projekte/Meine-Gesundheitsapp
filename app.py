@@ -2,7 +2,9 @@ import streamlit as st
 import google.generativeai as genai
 
 # 1. KONFIGURATION & KI-START
-API_KEY = "AIzaSyD3bp4VQN7aNO7Ugw0aFudEk-leZ-7Puxo"
+# Statt: API_KEY = "AIzaSyD3bp4VQN7aNO7Ugw0aFudEk-leZ-7Puxo"
+# Schreibst du:
+API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -57,4 +59,5 @@ if prompt := st.chat_input("Wie fühlst du dich gerade?"):
                 st.markdown(response_text)
     
     # KI-Antwort speichern
+
     st.session_state.messages.append({"role": "assistant", "content": response_text})
