@@ -1,44 +1,41 @@
 import streamlit as st
 import google.generativeai as genai
-import os
 
-# 1. KONFIGURATION
+# 1. SETUP
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
-    # Dieser Befehl zwingt die App, die stabile Version 1 zu nutzen
-    os.environ["GOOGLE_API_USE_MTLS"] = "never" 
     genai.configure(api_key=API_KEY)
     
-    # Wir nehmen jetzt 'gemini-1.5-flash' – das ist das Standardmodell
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Wir versuchen es jetzt mit dem Namen 'models/gemini-1.5-flash'
+    # Das ist die technisch präziseste Schreibweise
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
 except Exception as e:
-    st.error(f"Fehler bei der Konfiguration: {e}")
-    st.stop()
+    st.error(f"Setup Fehler: {e}")
 
-# 2. INTERFACE
-st.set_page_config(page_title="Dein Mentor", page_icon="🧘")
 st.title("🧘 Dein Alltags-Mentor")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Chat anzeigen
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Eingabe
-if prompt := st.chat_input("Schreib mir etwas..."):
+if prompt := st.chat_input("Schreib mir..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     try:
         with st.chat_message("assistant"):
-            # Wichtig: Wir nutzen hier den einfachsten Aufruf ohne Schnickschnack
+            # Der Aufruf mit Fehler-Abfang
             response = model.generate_content(prompt)
             st.markdown(response.text)
             st.session_state.messages.append({"role": "assistant", "content": response.text})
     except Exception as e:
-        st.error(f"Technisches Detail-Problem: {e}")
-        st.info("Falls dieser Fehler 404 bleibt, müssen wir einmal die 'Reboot App' Funktion nutzen.")
+        st.error(f"Fehler: {e}")
+        # Kleiner Helfer: Wir listen verfügbare Modelle auf, wenn es kracht
+        st.write("Verfügbare Modelle für deinen Key:")
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                st.write(f"- {m.name}")
